@@ -6,6 +6,18 @@ hostName = 'localhost'
 serverPort = 8080
 
 class MyHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        body = self.rfile.read(int(self.headers['Content-Length'])).decode('utf-8')
+        match body:
+            case "richard":
+                print(body == "richard")
+                self.send_response(200)
+                self.send_header("Content-type", "text/plain")
+                self.end_headers()
+                self.wfile.write(bytes("alpert", "utf-8"))
+            case _:
+                self.default()
+
     def do_GET(self):
         match self.path:
             case "/ping":
