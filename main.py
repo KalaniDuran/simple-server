@@ -1,22 +1,29 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import time
 import os
+import json
+import cgi
 
 hostName = 'localhost'
 serverPort = 8080
 
 class MyHandler(BaseHTTPRequestHandler):
     def do_POST(self):
-        body = self.rfile.read(int(self.headers['Content-Length'])).decode('utf-8')
-        match body:
-            case "richard":
-                print(body == "richard")
-                self.send_response(200)
-                self.send_header("Content-type", "text/plain")
-                self.end_headers()
-                self.wfile.write(bytes("alpert", "utf-8"))
-            case _:
-                self.default()
+        ctype, _ = cgi.parse_header(self.headers.get('content-type'))
+        
+        # refuse to receive non-json content
+        if ctype != 'application/json':
+            self.send_response(400)
+            self.end_headers()
+            return
+
+        length = int(self.headers.get('content-length'))
+        message = json.loads(self.rfile.read(length))
+
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(message).encode('utf-8'))
 
     def do_GET(self):
         match self.path:
