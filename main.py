@@ -14,7 +14,7 @@ class MyHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         match self.path:
             case "/createuser":
-                pass
+                self.createUser()
             case "/createbook":
                 pass
             case "/assignbook":
@@ -47,11 +47,35 @@ class MyHandler(BaseHTTPRequestHandler):
             case "/getuser":
                 self.getUser() 
             case "/getbook":
-                pass
+                self.getBook()
             case "/getbooksread":
                 pass
             case _:
                 self.default()
+    
+    def createUser(self):
+        ctype, _ = cgi.parse_header(self.headers.get('content-type'))
+        
+        # refuse to receive non-json content
+        if ctype != 'application/json':
+            self.send_response(400)
+            self.end_headers()
+            return
+
+        length = int(self.headers.get('content-length'))
+        message = json.loads(self.rfile.read(length))
+
+        connection.execute("""
+        INSERT into readers(name) 
+        VALUES (:name)""", message)
+
+        connection.commit()
+
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(bytes("User created", "utf-8"))
+
 
     def getUser(self):
         ctype, _ = cgi.parse_header(self.headers.get('content-type'))
@@ -65,25 +89,46 @@ class MyHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get('content-length'))
         message = json.loads(self.rfile.read(length))
 
-        #print(type(message))
-        #print(dict(message))
-
         result = connection.execute("""
             SELECT reader_id, name
             FROM readers 
             WHERE reader_id=:reader_id
             AND name=:name""", message).fetchall()
 
-        print(type(result))
-
-        for row in result:
-            print(dict(row))
+        connection.commit()
 
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
         for row in result:
             self.wfile.write(json.dumps(dict(row)).encode('utf-8'))
+
+    def getBook(self):
+        ctype, _ = cgi.parse_header(self.headers.get('content-type'))
+        
+        # refuse to receive non-json content
+        if ctype != 'application/json':
+            self.send_response(400)
+            self.end_headers()
+            return
+
+        length = int(self.headers.get('content-length'))
+        message = json.loads(self.rfile.read(length))
+
+        result = connection.execute("""
+            SELECT *
+            FROM books 
+            WHERE book_id=:book_id
+            AND title=:title""", message).fetchall()
+
+        connection.commit()
+        
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        for row in result:
+            self.wfile.write(json.dumps(dict(row)).encode('utf-8'))
+
 
     def ping(self):
         self.send_response(200)
