@@ -16,9 +16,9 @@ class MyHandler(BaseHTTPRequestHandler):
             case "/createuser":
                 self.createUser()
             case "/createbook":
-                pass
+                self.createBook()
             case "/assignbook":
-                pass
+                self.assignBook()
             case _:
                 self.default()
         
@@ -76,6 +76,53 @@ class MyHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(bytes("User created", "utf-8"))
 
+    def assignBook(self):
+        ctype, _ = cgi.parse_header(self.headers.get('content-type'))
+        
+        # refuse to receive non-json content
+        if ctype != 'application/json':
+            self.send_response(400)
+            self.end_headers()
+            return
+
+        length = int(self.headers.get('content-length'))
+        message = json.loads(self.rfile.read(length))
+
+        connection.execute("""
+        INSERT INTO books_read
+        SELECT reader_id, book_id
+        FROM readers, books
+        WHERE name=:name and title=:title""", message)
+
+        connection.commit()
+
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(bytes("Book assigned", "utf-8"))
+    
+    def createBook(self):
+        ctype, _ = cgi.parse_header(self.headers.get('content-type'))
+        
+        # refuse to receive non-json content
+        if ctype != 'application/json':
+            self.send_response(400)
+            self.end_headers()
+            return
+
+        length = int(self.headers.get('content-length'))
+        message = json.loads(self.rfile.read(length))
+
+        connection.execute("""
+        INSERT into books(title, author, description) 
+        VALUES (:title, :author, :description)""", message)
+
+        connection.commit()
+
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(bytes("Book created", "utf-8"))
 
     def getUser(self):
         ctype, _ = cgi.parse_header(self.headers.get('content-type'))
