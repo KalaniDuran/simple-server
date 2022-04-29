@@ -41,7 +41,7 @@ class MyHandler(BaseHTTPRequestHandler):
             case "/getbook":
                 self.getBook()
             case "/getbooksread":
-                pass
+                self.getBooksRead()
             case _:
                 self.default()
     
@@ -196,6 +196,43 @@ class MyHandler(BaseHTTPRequestHandler):
             SELECT *
             FROM books 
             WHERE title=:title""", message).fetchall()
+
+        connection.commit()
+        
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        for row in result:
+            self.wfile.write(json.dumps(dict(row)).encode('utf-8'))
+
+    """
+    Aceepts JSON input user information to retrieve info of all books read.
+    Information is accepted in this format:
+    {
+        "name" : "First and last name"
+    }
+    """
+    def getBooksRead(self):
+        ctype, _ = cgi.parse_header(self.headers.get('content-type'))
+        
+        # refuse to receive non-json content
+        if ctype != 'application/json':
+            self.send_response(400)
+            self.end_headers()
+            return
+
+        length = int(self.headers.get('content-length'))
+        message = json.loads(self.rfile.read(length))
+
+        result = connection.execute("""
+            SELECT name, title 
+            FROM 
+                (SELECT readers.name, books.title 
+                FROM 
+                    ((readers INNER JOIN books_read ON readers.reader_id = books_read.reader_id) 
+                              INNER JOIN books ON books.book_id = books_read.book_id)
+                ) 
+            WHERE name =:name""", message).fetchall()
 
         connection.commit()
         
